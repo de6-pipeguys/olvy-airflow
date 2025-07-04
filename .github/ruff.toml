@@ -1,0 +1,68 @@
+# Directories and files to exclude from linting
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "migrations",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+
+# Maximum line length for formatting
+line-length = 100
+indent-width = 4
+
+# Target Python version (e.g., 3.11 for compatibility with tools like Airflow/DBT)
+target-version = "py312"
+
+# Enable linting for .ipynb files
+extend-include = ["*.ipynb"]
+
+# Linter rules to enable
+[lint]
+select = [
+    "E",  # pycodestyle: style errors
+    "F",  # pyflakes: logic errors
+    "I",  # isort: import sorting
+    "N"   # pep8-naming: naming conventions
+]
+
+# Rules to ignore
+ignore = [
+    "E501"  # Ignore line-too-long
+]
+
+# File-specific rule overrides
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Ignore unused imports in __init__.py
+
+# Formatter configuration
+[format]
+quote-style = "double"          # Use double quotes for strings
+indent-style = "space"          # Use spaces for indentation
+line-ending = "auto"            # Use OS-specific line endings
+docstring-code-format = false   # Enable not auto-formatting code blocks within docstring
+docstring-code-line-length = "dynamic" # Enable dynamic line length control for code blocks
