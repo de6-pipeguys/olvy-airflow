@@ -73,7 +73,7 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     AIRFLOW__API_AUTH__JWT_SECRET: ${JWT_SECRET:-}
-    DBT_PROJECT_DIR: /opt/airflow/de6-5team
+    DBT_PROJECT_DIR: /opt/airflow/de6_5team
     DBT_PROFILES_DIR: /home/airflow/.dbt
     DBT_DATABASE: ${DBT_DATABASE}
     DBT_USER: ${DBT_USER}
@@ -351,7 +351,7 @@ services:
     volumes:
       - dbt-dev-db-volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "dbt_user"]
+      test: ["CMD", "pg_isready", "-U", "${DBT_USER}"]
       interval: 10s
       retries: 5
       start_period: 5s
