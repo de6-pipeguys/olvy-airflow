@@ -225,7 +225,7 @@ services:
           echo "For other operating systems you can get rid of the warning with manually created .env file:"
           echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#setting-the-right-airflow-user"
           echo
-          export AIRFLOW_UID=$(id -u)
+          export AIRFLOW_UID=$$(id -u)
         fi
         one_meg=1048576
         mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
@@ -347,7 +347,7 @@ services:
       POSTGRES_PASSWORD: ${DBT_PASSWORD}
       POSTGRES_DB: ${DBT_DATABASE}
     ports:
-      - "5433:5432"  # 개발자용 Postgres는 5433 포트에서 외부 노출
+      - "5433:5432"
     volumes:
       - dbt-dev-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -359,3 +359,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  dbt-dev-db-volume:
