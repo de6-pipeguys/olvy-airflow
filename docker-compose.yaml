@@ -169,7 +169,7 @@ services:
       - |
         if [[ -z "${AIRFLOW_UID}" ]]; then
           echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
-          export AIRFLOW_UID=$(id -u)
+          export AIRFLOW_UID=$$(id -u)
         fi
         mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
         /entrypoint airflow version
