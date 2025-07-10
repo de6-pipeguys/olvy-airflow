@@ -1,30 +1,45 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta
 import os
 import json
 import pandas as pd
 from seleniumbase import SB
-from crawlers.crawl_rank_cleansing import get_top100_cleansing, get_product_detail_info
+from plugins.crawl_rank import get_top100, get_product_detail_info
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 # import boto3
 import logging
+from pendulum import datetime, timezone
 
 def crawl_cleansing_data(**context):
     logging.info("get_top100_cleansing 실행")
-    data, goods_no_list = get_top100_cleansing()
+    
+    # 올리브영 클렌징 랭킹 페이지 열기
+    url = "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000010010&pageIdx=1&rowsPerPage=8"
+    data, goods_no_list = get_top100(url)
 
     logging.info(f"Top100 상품 수: {len(goods_no_list)}")
 
     detail_list = []
-    with SB(uc=True, test=True, headless=True) as sb:
-        for goods_no in goods_no_list:
-            try:
-                detail = get_product_detail_info(sb, goods_no)
-                detail_list.append(detail)
-            except Exception as e:
-                logging.warning(f"상세 정보 수집 실패: {goods_no} | {e}")
-                detail_list.append({})
+
+    BATCH_SIZE = 50  # 🔁 50개 단위로 크롬 재시작
+    total = len(goods_no_list)
+
+    for start in range(0, total, BATCH_SIZE):
+        end = min(start + BATCH_SIZE, total)
+        logging.info(f"크롬 인스턴스 새로 시작: {start+1} ~ {end}위")
+
+        with SB(uc=True, test=True, headless=True) as sb:
+            for idx in range(start, end):
+                goods_no = goods_no_list[idx]
+                logging.info(f"[{idx + 1}위] 상세정보 크롤링 시작 - goodsNo: {goods_no}")
+                try:
+                    detail = get_product_detail_info(sb, goods_no)
+                    detail_list.append(detail)
+                    logging.info(f"[{idx + 1}위] 크롤링 성공 - goodsNo: {goods_no}")
+                except Exception as e:
+                    logging.warning(f"[{idx + 1}위] 크롤링 실패 - goodsNo: {goods_no} | 에러: {e}")
+                    detail_list.append({})
 
     logging.info("데이터 병합 및 저장")
     df_basic = pd.DataFrame(data)
@@ -32,8 +47,8 @@ def crawl_cleansing_data(**context):
     result_df = pd.concat([df_basic.reset_index(drop=True), df_detail.reset_index(drop=True)], axis=1)
 
     # 저장 경로 지정
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = f"/opt/airflow/data/cleansing_{ts}.json"
+    ts = dt.now().strftime("%Y%m%d_%H%M%S")
+    output_path = f"/opt/airflow/data/cleansing/cleansing_{ts}.json"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     result_df.to_json(output_path, orient="records", force_ascii=False, indent=2)
 
@@ -42,8 +57,8 @@ def crawl_cleansing_data(**context):
 
 def upload_to_s3(**context):
     file_path = context['ti'].xcom_pull(key='cleansing_file_path', task_ids='crawl_cleansing')
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    s3_key = f"raw_data/non_pb/cleansing/{ts}.json"
+    ts = dt.now().strftime("%Y%m%d_%H%M%S")
+    s3_key = f"raw_data/non_pb/cleansing/rank_cleansing_result_{ts}.json"
     bucket_name = "de6-final-test"
 
     try:
@@ -57,17 +72,18 @@ def upload_to_s3(**context):
 # =======  DAG 정의 =======
 default_args = {
     'owner': 'airflow',
+    'depends_on_past': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=2),
+    'start_date': datetime(2025, 7, 1, tz=timezone("Asia/Seoul"))
 }
 
 with DAG(
-    dag_id="crawl_cleansing_dag",
+    dag_id="crawl_cleansing_morning_dag",
     default_args=default_args,
-    start_date=datetime(2025, 7, 1),
-    schedule_interval = None,
+    schedule_interval = "30 9 * * *",
     catchup=False,
-) as dag:
+) as dag_morning:
 
     crawl_cleansing = PythonOperator(
         task_id="crawl_cleansing",
@@ -82,3 +98,24 @@ with DAG(
     )
 
     crawl_cleansing >> upload_json_to_s3
+
+with DAG(
+    dag_id="crawl_cleansing_evening_dag",
+    default_args=default_args,
+    schedule_interval = "1 17 * * *",
+    catchup=False,
+) as dag_evening:
+
+    crawl_cleansing = PythonOperator(
+        task_id="crawl_cleansing",
+        python_callable=crawl_cleansing_data,
+        provide_context=True,
+    )
+
+    upload_json_to_s3 = PythonOperator(
+        task_id="upload_to_s3",
+        python_callable=upload_to_s3,
+        provide_context=True,
+    )
+
+    crawl_cleansing >> upload_json_to_s3    

@@ -1,18 +1,19 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta
 import pandas as pd
 import json
 import os
 from seleniumbase import SB
 import logging
-from crawlers.crawl_pbbrand_shingmulnara import get_brand, get_product_detail_info  
+from plugins.crawl_pbbrand import get_brand, get_product_detail_info  
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from pendulum import datetime, timezone
 
 def crawl_shingmulnara_with_detail(**context):
     brand_code = "A000036"
-    brand_name = "식물나라"
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # brand_name = "식물나라"
+    ts = dt.now().strftime("%Y%m%d_%H%M%S")
 
     df = get_brand(brand_code)
 
@@ -40,15 +41,15 @@ def crawl_shingmulnara_with_detail(**context):
     detail_df = pd.DataFrame(detail_list)
     result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
 
-    filename = f"shingmulnara_{ts}.json"
-    local_path = f"/opt/airflow/data/{filename}"
+    filename = f"pb_shingmulnara_result_{ts}.json"
+    local_path = f"/opt/airflow/data/shingmulnara/{filename}"
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
 
     result_df.to_json(local_path, orient='records', force_ascii=False, indent=2)
     logging.info(f"✅ 저장 파일명: {local_path}")
 
     context['ti'].xcom_push(key='local_path', value=local_path)
-    context['ti'].xcom_push(key='s3_key', value=f"raw_data/pb/{filename}")
+    context['ti'].xcom_push(key='s3_key', value=f"raw_data/pb/shingmulnara/{filename}")
     print(f"저장 완료: {local_path}")
 
 def upload_to_s3(**context):
@@ -72,13 +73,13 @@ default_args = {
     'depends_on_past': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=2),
+    'start_date': datetime(2025, 7, 1, tz=timezone("Asia/Seoul"))
 }
 
 with DAG(
     dag_id='shingmulnara_crawling_dag',
     default_args=default_args,
-    start_date=datetime(2025, 7, 1),
-    schedule_interval=None,
+    schedule_interval="0 13 * * *",
     catchup=False,
 ) as dag:
 

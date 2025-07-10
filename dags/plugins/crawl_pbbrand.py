@@ -65,7 +65,7 @@ def get_brand(brand_code) -> pd.DataFrame:
                 try:
                     price_original = item.select_one("span.origin").text.strip().replace("원", "").replace(",", "")
                 except Exception:
-                    price_original = ""
+                    price_original = price_final
                 try:
                     flag_spans = item.select("div.flags span.flag")
                     flag_list = [span.text.strip() for span in flag_spans if span.text.strip()]
@@ -111,7 +111,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     # 대표 코멘트
     try:
         comment_tag = soup.select_one("p.img_face em")
-        total_comment = comment_tag.text.strip() if comment_tag else ""
+        total_comment = comment_tag.get_text(strip=True) if comment_tag else ""
     except Exception as e:
         print(f"대표 코멘트 파싱 실패: {e}")
         total_comment = ""
@@ -144,7 +144,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                 EC.presence_of_element_located((By.CSS_SELECTOR, "ul.graph_list span.per"))
             )
             percent_elements = sb.find_elements("css selector", "ul.graph_list span.per")
-            percent_list = [el.text.strip() for el in percent_elements]
+            percent_list = [el.text.strip().replace("%", "") for el in percent_elements]
             if len(percent_list) == 5:
                 pctOf5 = percent_list[0]
                 pctOf4 = percent_list[1]

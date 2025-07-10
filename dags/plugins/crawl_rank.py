@@ -17,7 +17,7 @@ import os
 os.environ['WDM_ARCH'] = 'arm64'
 os.environ["UC_DRIVER_PATH"] = "/opt/airflow/uc_driver"
 
-def get_top100_suncare() -> tuple:
+def get_top100(url: str) -> tuple:
     chrome_options = Options()
     chrome_options.add_argument('--headless=new') 
     chrome_options.add_argument("--no-sandbox")
@@ -25,8 +25,6 @@ def get_top100_suncare() -> tuple:
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-    # 올리브영 선케어 랭킹 페이지 열기
-    url = "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000010011&pageIdx=1&rowsPerPage=8"
     driver.get(url)
 
     # 페이지 로딩 대기
@@ -160,7 +158,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     # 대표 코멘트
     try:
         comment_tag = soup.select_one("p.img_face em")
-        total_comment = comment_tag.text.strip() if comment_tag else ""
+        total_comment = comment_tag.get_text(strip=True) if comment_tag else ""
     except Exception as e:
         print(f"대표 코멘트 파싱 실패: {e}")
         total_comment = ""
@@ -193,7 +191,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                 EC.presence_of_element_located((By.CSS_SELECTOR, "ul.graph_list span.per"))
             )
             percent_elements = sb.find_elements("css selector", "ul.graph_list span.per")
-            percent_list = [el.text.strip() for el in percent_elements]
+            percent_list = [el.text.strip().replace("%", "") for el in percent_elements]
             if len(percent_list) == 5:
                 pctOf5 = percent_list[0]
                 pctOf4 = percent_list[1]
