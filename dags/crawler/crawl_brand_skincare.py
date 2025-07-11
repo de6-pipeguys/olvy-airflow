@@ -127,7 +127,7 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
         log.info(f"[get_brand_product_detail_info] 총 리뷰수: {total_review}")
     except Exception as e:
         log.warning(f"[get_brand_product_detail_info] 총 리뷰수 파싱 실패: {e}")
-        total_review = ""
+        total_review = 0
     # 리뷰평점
     try:
         review_score = soup.select_one("#repReview b")
@@ -142,7 +142,7 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
 
     # 리뷰가 1건 이상 있을 때만 리뷰탭 클릭 및 분포 수집
     total_comment = ""
-    if total_review > 1:
+    if total_review > 0:
         try:
             sb.click("a.goods_reputation")
             log.info("[get_brand_product_detail_info] 리뷰탭 클릭 성공")
@@ -163,10 +163,8 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
             except Exception:
                 total_comment = ""
                 log.warning("[get_brand_product_detail_info] 대표 코멘트 추출 실패")
-
         except Exception as e:
             log.warning(f"[get_brand_product_detail_info] 리뷰 정보 수집 실패: {e}")
-
     else:
         log.warning("[get_product_detail_info] 리뷰 정보 없음: 리뷰 수가 0건 입니다.")
 
@@ -192,7 +190,7 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
                     dt_text = dt.text.strip()
                     dd_text = dd.text.strip()
                     if title in dt_text:
-                        log.info(f"[get_brand_product_detail_info] {title} 추출: {dd_text}")
+                        log.info(f"[get_brand_product_detail_info] {title} 추출 성공!")
                         return dd_text
         except Exception as e:
             log.warning(f"[get_brand_product_detail_info] 상세 정보 파싱 실패 ({title}): {e}")
@@ -243,32 +241,3 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
         "reviewDetail": review_detail,
         **detail_spec,
     }
-
-##### 실행 코드 #####
-# PB_BRAND_CODE_DICT = {
-#     "바이오힐 보": "A000897",
-#     "브링그린": "A002253",
-#     "웨이크메이크": "A001240",
-#     "컬러그램": "A002712",
-#     "필리밀리": "A002502",
-#     "아이디얼포맨": "A001643",
-#     "라운드어라운드": "A001306",
-#     "식물나라": "A000036",
-#     "케어플러스": "A003339",
-#     "탄탄": "A015673",
-#     "딜라이트 프로젝트": "A003361",
-# }
-
-# for brand_name, brand_code in PB_BRAND_CODE_DICT.items():
-#     df = get_brand(brand_name, brand_code)
-
-    # with SB(uc=True, test=True) as sb:
-    #     detail_list = []
-    #     for goods_no in df['goodsNo']:
-    #         detail = get_brand_product_detail_info(sb, goods_no)
-    #         detail_list.append(detail)
-
-#     detail_df = pd.DataFrame(detail_list)
-#     result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-
-#     result_df.to_json('skincare_result.json', orient='records', force_ascii=False, indent=2)

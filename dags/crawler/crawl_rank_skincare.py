@@ -176,7 +176,8 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     pctOf5 = pctOf4 = pctOf3 = pctOf2 = pctOf1 = None
 
     # 리뷰가 1건 이상 있을 때만 리뷰탭 클릭 및 분포 수집
-    if total_review > 1:
+    total_comment = ""
+    if total_review > 0:
         try:
             sb.click("a.goods_reputation")
             WebDriverWait(sb.driver, 10).until(
@@ -200,8 +201,6 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
             except Exception:
                 total_comment = ""
                 log.warning("[get_product_detail_info] 대표 코멘트 추출 실패")
-
-            log.info("[get_product_detail_info] 리뷰 정보 수집 성공")
         except Exception as e:
             log.warning(f"[get_product_detail_info] 리뷰 정보 수집 실패: {e}")
     else:
@@ -229,7 +228,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                     dt_text = dt.text.strip()
                     dd_text = dd.text.strip()
                     if title in dt_text:
-                        log.info(f"[get_product_detail_info] {title} 추출: {dd_text}")
+                        log.info(f"[get_product_detail_info] {title} 추출 성공!")
                         return dd_text
         except Exception as e:
             log.warning(f"[get_product_detail_info] 상세 정보 파싱 실패 ({title}): {e}")
@@ -280,20 +279,3 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
         **detail_spec,
 
     }
-
-
-##### 실행 코드 #####
-# data, goods_no_list = get_top100_skincare()
-
-# with SB(uc=True, test=True) as sb:
-#     detail_list = []
-#     for goods_no in goods_no_list:
-#         detail = get_product_detail_info(sb, goods_no)
-#         detail_list.append(detail)
-
-# df = pd.DataFrame(data)
-# detail_df = pd.DataFrame(detail_list)
-# result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-
-# result_df.to_json('skincare_result.json', orient='records', force_ascii=False, indent=2)
-
