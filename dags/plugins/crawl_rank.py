@@ -5,11 +5,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import pandas as pd
+import logging
 import time
 import json
 import datetime
-from seleniumbase import SB
 from bs4 import BeautifulSoup
 
 # 환경변수 설정 (ARM64 아키텍처용 드라이버 다운로드 및 uc 관련 권한 경로 지정)
@@ -141,42 +140,37 @@ def get_top100(url: str) -> tuple:
     return data, goods_no_list
 
 
-def get_product_detail_info(sb, goods_no: str) -> dict:
+def get_rank_detail_info(sb, goods_no: str) -> dict:
     url = f"https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo={goods_no}"
     sb.uc_open_with_reconnect(url, reconnect_time=5)
     time.sleep(1)
     html = sb.driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
-    
-    # 카테고리 추출
-    try:
-        category = soup.select_one("a.cate_y#midCatNm").text.strip()
-    except Exception as e:
-        print(f"카테고리 추출 실패: {e}")
-        category = ""
 
-    # 대표 코멘트
-    try:
-        comment_tag = soup.select_one("p.img_face em")
-        total_comment = comment_tag.get_text(strip=True) if comment_tag else ""
-    except Exception as e:
-        print(f"대표 코멘트 파싱 실패: {e}")
-        total_comment = ""
+    # 카테고리 추출
+    # try:
+    #     category = soup.select_one("a.cate_y#midCatNm").text.strip()
+    #     logging.info(f"카테고리: {category}")
+    # except Exception as e:
+    #     logging.warning(f"카테고리 추출 실패: {e}")
+    #     category = ""
     
     # 총리뷰수
     try:
         review_info = soup.select_one("#repReview em")
         total_review = int(review_info.text.strip().replace("(", "").replace("건)", "").replace(",", ""))
+        logging.info(f"총리뷰수: {total_review}")
     except Exception as e:
-        print(f"총 리뷰수 파싱 실패: {e}")
+        logging.warning(f"총 리뷰수 파싱 실패: {e}")
         total_review = 0
 
     # 리뷰평점
     try:
         review_score = soup.select_one("#repReview b")
         review_score = float(review_score.text.strip())
+        logging.info(f"리뷰평점: {review_score}")
     except Exception as e:
-        print(f"리뷰평점 파싱 실패: {e}")
+        logging.warning(f"리뷰평점 파싱 실패: {e}")
         review_score = None
 
     # 리뷰 분포 기본값
@@ -184,6 +178,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     review_detail = ""
 
     # 리뷰가 1건 이상 있을 때만 리뷰탭 클릭 및 분포 수집
+    total_comment = ""
     if total_review > 0:
         try:
             sb.click("a.goods_reputation")
@@ -191,13 +186,23 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                 EC.presence_of_element_located((By.CSS_SELECTOR, "ul.graph_list span.per"))
             )
             percent_elements = sb.find_elements("css selector", "ul.graph_list span.per")
-            percent_list = [el.text.strip().replace("%", "") for el in percent_elements]
+            percent_list = [el.text.strip() for el in percent_elements]
             if len(percent_list) == 5:
                 pctOf5 = percent_list[0]
                 pctOf4 = percent_list[1]
                 pctOf3 = percent_list[2]
                 pctOf2 = percent_list[3]
                 pctOf1 = percent_list[4]
+                logging.info(f"리뷰 분포: {percent_list}")
+
+            try:
+                # 대표 코멘트 추출
+                comment_tag = sb.find_element(By.CSS_SELECTOR, "p.img_face em")
+                total_comment = comment_tag.text.strip() if comment_tag else ""
+                logging.info(f"[get_product_detail_info] 대표 코멘트 추출: {total_comment}")
+            except Exception:
+                total_comment = ""
+                logging.warning("[get_product_detail_info] 대표 코멘트 추출 실패")
 
             # reviewDetail 정보
             review_detail = []
@@ -215,21 +220,21 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                             "gauge": percent
                         })
                 except Exception as e:
-                    print(f"리뷰 설문 수집 오류: {e}")
+                    logging.warning(f"리뷰 설문 수집 오류: {e}")
             review_detail = json.dumps(review_detail, ensure_ascii=False)
 
         except Exception as e:
-            print("리뷰 정보 없음:", e)
+            logging.warning("리뷰 정보 없음:", e)
 
     # === 상세스펙(구매정보) 추출 ===
     # 구매정보 탭 클릭
     try:
         sb.click("a.goods_buyinfo")
-        time.sleep(3)  # ajax 로딩 대기
+        time.sleep(1)  # ajax 로딩 대기
         html = sb.driver.page_source
         soup = BeautifulSoup(html, 'html.parser')
     except Exception as e:
-        print("구매정보 탭 클릭 실패:", e)
+        logging.warning("구매정보 탭 클릭 실패:", e)
 
     # === 한글 키 → 영어 키 매핑 ===
     title_map = {
@@ -258,10 +263,10 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                     if kr_title in dt_text:
                         detail_spec[en_key] = dd_text
     except Exception as e:
-        print(f"[상세 스펙 파싱 오류]: {e}")
+        logging.warning(f"[상세 스펙 파싱 오류]: {e}")
 
     return {
-        "category": category,
+        # "category": category,
         "totalComment": total_comment,
         "numOfReviews": total_review,
         "avgReview": review_score,
@@ -273,19 +278,3 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
         "reviewDetail": review_detail,
         **detail_spec,
     }
-
-##### 실행 코드 #####
-# data, goods_no_list = get_top100_suncare()
-# with SB(uc=True, test=True) as sb:
-#     detail_list = []
-#     for goods_no in goods_no_list:
-#         detail = get_product_detail_info(sb, goods_no)
-#         detail_list.append(detail)
-# df = pd.DataFrame(data)
-# detail_df = pd.DataFrame(detail_list)
-# result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-# now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-# filename = f"suncare_result_{now}.json"
-# result_df.to_json(filename, orient='records', force_ascii=False, indent=2)
-# print(f"✅ 저장 완료: {filename}")
-# print(f"총 {len(result_df)}개 상품 저장됨")

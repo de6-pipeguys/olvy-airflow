@@ -1,4 +1,5 @@
-FROM --platform=linux/amd64 apache/airflow:2.9.1
+# befor -> 2.9.1
+FROM --platform=linux/amd64 apache/airflow:3.0.2
 
 # Chrome 설치는 루트 권한이 필요하므로
 USER root
