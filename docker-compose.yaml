@@ -51,7 +51,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${CORE_HOST}:5432/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@${CORE_HOST}:5432/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://@${CORE_HOST}:6379/0
+    AIRFLOW__CELERY__BROKER_URL: redis://${CORE_HOST}:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -70,6 +70,9 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+    hostname: worker
+    ports:
+      - "8793:8793"
     healthcheck:
       test:
         - "CMD-SHELL"
