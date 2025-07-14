@@ -60,7 +60,7 @@ def crawl_cleansing_data(**context):
 def upload_to_s3(**context):
     local_path = context['ti'].xcom_pull(task_ids='crawl_cleansing', key='local_path')
     s3_key = context['ti'].xcom_pull(task_ids='crawl_cleansing', key='s3_key')
-    bucket_name = "dde6-team5-bucket"  
+    bucket_name = "de6-team5-bucket"  
 
     try:
         hook = S3Hook(aws_conn_id='de6-team5-bucket')  
