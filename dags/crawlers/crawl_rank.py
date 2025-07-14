@@ -8,10 +8,12 @@ import time
 import datetime
 from bs4 import BeautifulSoup
 from airflow.utils.log.logging_mixin import LoggingMixin
+import pendulum
 
-def get_top100() -> tuple:
+
+def get_top100(category: str) -> tuple:
     log = LoggingMixin().log
-    log.info("[get_top100_{log_tag}] 시작")
+    log.info("[get_top100_{category}] 시작")
     chrome_options = Options()
     chrome_options.add_argument('--headless=new') 
     chrome_options.add_argument("--no-sandbox")
@@ -21,12 +23,22 @@ def get_top100() -> tuple:
     )
 
     driver = webdriver.Chrome(
+        #service=Service(ChromeDriverManager().install()), options=chrome_options
         service=Service("/usr/local/bin/chromedriver"), options=chrome_options
     )
 
-    # 올리브영 푸드 랭킹 페이지 열기
-    url = "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000020002&pageIdx=1&rowsPerPage=8&t_page=%EB%9E%AD%ED%82%B9&t_click=%ED%8C%90%EB%A7%A4%EB%9E%AD%ED%82%B9_%ED%91%B8%EB%93%9C"
-    log.info(f"[get_top100_skincare] URL 오픈: {url}")
+    # 올리브영 랭킹 페이지 열기
+    if category == "food":
+        url = "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000020002&pageIdx=1&rowsPerPage=8&t_page=%EB%9E%AD%ED%82%B9&t_click=%ED%8C%90%EB%A7%A4%EB%9E%AD%ED%82%B9_%ED%91%B8%EB%93%9C"
+    
+    elif category == "healthcare":
+        url = "https://www.oliveyoung.co.kr/store/main/getBestList.do?dispCatNo=900000100100001&fltDispCatNo=10000020005&pageIdx=1&rowsPerPage=8&t_page=%EB%9E%AD%ED%82%B9&t_click=%ED%8C%90%EB%A7%A4%EB%9E%AD%ED%82%B9_%ED%97%AC%EC%8A%A4%2F%EA%B1%B4%EA%B0%95%EC%9A%A9%ED%92%88"
+
+    else:
+        log.error(f"[get_top100_{category}] 지원하지 않는 카테고리입니다: {category}")
+        driver.quit()
+        return [], []
+    
     driver.get(url)
 
     # 페이지 로딩 대기
@@ -37,7 +49,7 @@ def get_top100() -> tuple:
     items = driver.find_elements(
         By.CSS_SELECTOR, "div.TabsConts.on ul.cate_prd_list li"
     )
-    log.info(f"[get_top100_skincare] 상품 개수: {len(items)}")
+    log.info(f"[get_top100_{category}] 상품 개수: {len(items)}")
     rank = 1
     # 타임스탬프 생성
     collected_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -81,7 +93,7 @@ def get_top100() -> tuple:
                         By.CSS_SELECTOR, ".prd_price .tx_cur .tx_num"
                     ).text.strip()
                 except Exception as e:
-                    log.warning(f"[get_top100_skincare] 구매가격 정보 파싱 실패: {e}")
+                    log.warning(f"[get_top100_{category}] 구매가격 정보 파싱 실패: {e}")
                     price_final = ""
                 # 기타 프로모션 정보(null 허용)
                 try:
@@ -92,7 +104,7 @@ def get_top100() -> tuple:
                 except Exception:
                     flag_list = []
             except Exception as e:
-                log.warning(f"[get_top100_skincare] 제품 정보 파싱 실패: {e}")
+                log.warning(f"[get_top100_{category}] 제품 정보 파싱 실패: {e}")
                 continue
 
             # 올리브영 PB 브랜드 여부 확인
@@ -133,15 +145,15 @@ def get_top100() -> tuple:
                     "isSoldout": bool(is_soldout)
                 }
             )
-            log.info(f"[get_top100_skincare] {rank_val}위 상품: {brand} {name} (goods_no: {goods_no})")
+            log.info(f"[get_top100_{category}] {rank_val}위 상품: {brand} {name} (goods_no: {goods_no})")
             rank += 1
 
         except Exception as e:
-            log.warning(f"[get_top100_skincare] 제품 정보 파싱 실패: {e}")
+            log.warning(f"[get_top100_{category}] 제품 정보 파싱 실패: {e}")
             continue
 
     driver.quit()
-    log.info(f"[get_top100_skincare] 크롤링 종료: 총 상품 {len(data)}개, goods_no {len(goods_no_list)}개")
+    log.info(f"[get_top100_{category}] 크롤링 종료: 총 상품 {len(data)}개, goods_no {len(goods_no_list)}개")
     return data, goods_no_list
 
 
@@ -149,8 +161,8 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     log = LoggingMixin().log
     url = f"https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo={goods_no}"
     log.info(f"[get_product_detail_info] 시작: goods_no={goods_no}")
-    sb.uc_open_with_reconnect(url, reconnect_time=5)
-    log.info(f"[get_product_detail_info] URL 오픈: {url}")
+    #sb.uc_open_with_reconnect(url, reconnect_time=5)  # 속도 더 느림
+    sb.open(url)
     time.sleep(1)
     html = sb.driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
@@ -175,6 +187,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     pctOf5 = pctOf4 = pctOf3 = pctOf2 = pctOf1 = None
 
     # 리뷰가 1건 이상 있을 때만 리뷰탭 클릭 및 분포 수집
+    total_comment = ""
     if total_review > 0:
         try:
             sb.click("a.goods_reputation")
@@ -199,11 +212,10 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
             except Exception:
                 total_comment = ""
                 log.warning("[get_product_detail_info] 대표 코멘트 추출 실패")
-                
         except Exception as e:
-            log.warning(f"[get_product_detail_info] 리뷰 정보 없음: {e}")
-
-
+            log.warning(f"[get_product_detail_info] 리뷰 정보 수집 실패: {e}")
+    else:
+        log.warning("[get_product_detail_info] 리뷰 정보 없음: 리뷰 수가 0건 입니다.")
 
     # === 상세스펙(구매정보) 추출 ===
     # 구매정보 탭 클릭
@@ -227,7 +239,7 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
                     dt_text = dt.text.strip()
                     dd_text = dd.text.strip()
                     if title in dt_text:
-                        log.info(f"[get_product_detail_info] {title} 추출: {dd_text}")
+                        log.info(f"[get_product_detail_info] {title} 추출 성공!")
                         return dd_text
         except Exception as e:
             log.warning(f"[get_product_detail_info] 상세 정보 파싱 실패 ({title}): {e}")
@@ -278,19 +290,3 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
         **detail_spec,
 
     }
-
-
-##### 실행 코드 #####
-# data, goods_no_list = get_top100_skincare()
-
-# with SB(uc=True, test=True) as sb:
-#     detail_list = []
-#     for goods_no in goods_no_list:
-#         detail = get_product_detail_info(sb, goods_no)
-#         detail_list.append(detail)
-
-# df = pd.DataFrame(data)
-# detail_df = pd.DataFrame(detail_list)
-# result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-
-# result_df.to_json('skincare_result.json', orient='records', force_ascii=False, indent=2)

@@ -1,97 +1,121 @@
-from airflow import DAG
+from airflow.models.dag import DAG # 이 부분 import 추가
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pandas as pd
-import json
-import os
+import boto3
 from seleniumbase import SB
+import os
+from crawlers import crawl_brand 
+from utils import slack
+from airflow.models import Variable
 import logging
-from crawlers.crawl_brand import get_brand, get_brand_product_detail_info  
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-def crawl_delightproject_with_detail(**context):
-    brand_code = "A003361"
-    brand_name = "딜라이트 프로젝트"
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    df = get_brand(brand_name, brand_code)
-
-    logging.info(f"✅ 수집된 제품 수: {len(df)}개")
-
-    if df.empty:
-        logging.warning("❌ 크롤링 결과가 비었습니다")
-        return
-
-    with SB(uc=True, test=True, headless=True) as sb:
-        detail_list = []
-        for idx, row in df.iterrows():
-            goods_no = row['goodsNo']
-            # product_name = row.get('goodsName', '이름없음')
-
-            logging.info(f"[{idx+1}/{len(df)}] 상세정보 크롤링 시작 - goodsNo: {goods_no}")
-            try:
-                detail = get_brand_product_detail_info(sb, goods_no)
-                detail_list.append(detail)
-                logging.info(f"[{idx+1}/{len(df)}] 크롤링 성공 - goodsNo: {goods_no}")
-            except Exception as e:
-                logging.warning(f"'[{idx+1}/{len(df)}] 크롤링 실패 - goodsNo: {goods_no} | 에러: {e}")
-                detail_list.append({})  # 실패해도 빈 값이라도 넣어주기
-
-    detail_df = pd.DataFrame(detail_list)
-    result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-
-    filename = f"delightproject_{ts}.json"
-    local_path = f"/opt/airflow/data/{filename}"
-    os.makedirs(os.path.dirname(local_path), exist_ok=True)
-
-    result_df.to_json(local_path, orient='records', force_ascii=False, indent=2)
-    logging.info(f"✅ 저장 파일명: {local_path}")
-
-    context['ti'].xcom_push(key='local_path', value=local_path)
-    context['ti'].xcom_push(key='s3_key', value=f"raw_data/pb/{filename}")
-    print(f"저장 완료: {local_path}")
-
-def upload_to_s3(**context):
-    local_path = context['ti'].xcom_pull(key='local_path')
-    s3_key = context['ti'].xcom_pull(key='s3_key')
-
-    s3_hook = S3Hook(aws_conn_id="test_s3")
-    bucket_name = "de6-final-test"  # 실제 버킷명으로 바꿔야 함
-
-    s3_hook.load_file(
-        filename=local_path,
-        key=s3_key,
-        bucket_name=bucket_name,
-        replace=True
-    )
-    print(f"S3 업로드 완료: s3://{bucket_name}/{s3_key}")
-
-# DAG 정의
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
     'retries': 1,
-    'retry_delay': timedelta(minutes=2),
+    'retry_delay': timedelta(minutes=5),
+    'on_failure_callback': slack.on_failure_callback,
+    'on_retry_callback': slack.on_retry_callback, 
 }
 
+#
+PB_BRAND_CODE_DICT = {
+    "딜라이트 프로젝트": "A003361"
+}
+
+def crawl_pb_brand(**context):
+    brand_data = {}
+    for brand_name, brand_code in PB_BRAND_CODE_DICT.items():
+        data, goods_no_list = crawl_brand.get_brand(brand_name, brand_code)
+        brand_data[brand_name] = {
+            "data": data,
+            "goods_no_list": goods_no_list
+        }
+    context['ti'].xcom_push(key='brand_data', value=brand_data)
+
+def crawl_pb_product_info(**context):
+    brand_data = context['ti'].xcom_pull(key='brand_data', task_ids='crawl_pb_brand')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filenames = []
+    for brand_name, brand_info in brand_data.items():
+        data = brand_info["data"]
+        goods_no_list = brand_info["goods_no_list"]
+        logging.info(f"{brand_name} 데이터 수집 시작")
+        detail_list = []
+        with SB(uc=True, test=True, headless=True) as sb:
+            for idx, goods_no in enumerate(goods_no_list, 1):
+                detail = crawl_brand.get_brand_product_detail_info(sb, goods_no)
+                detail_list.append(detail)
+                logging.info(f"{idx}번째 데이터 수집 완료")
+
+        if len(detail_list) < len(goods_no_list):
+            raise ValueError("랭킹 상품 데이터를 모두 수집하지 못했습니다. 수집 과정에서 오류가 발생했습니다.")
+        else:
+            logging.info(f"{len(detail_list)}개의 상품데이터가 정상적으로 수집되었습니다.")
+
+        df = pd.DataFrame(data)
+        detail_df = pd.DataFrame(detail_list)
+        result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
+        # 파일명 생성
+        brand_file_key = brand_name.lower().replace(" ", "").replace("딜라이트프로젝트", "delightproject")
+        filename = f"pb_{brand_file_key}_result_{timestamp}.json"
+        result_df.to_json(filename, orient='records', force_ascii=False, indent=2)
+        filenames.append(filename)
+    context['ti'].xcom_push(key='result_filenames', value=filenames)
+
+def upload_to_s3(**context):
+    aws_access_key_id = Variable.get("YOUR_AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = Variable.get("YOUR_AWS_SECRET_ACCESS_KEY")
+
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name='ap-northeast-2'
+    )
+    filenames = context['ti'].xcom_pull(key='result_filenames', task_ids='crawl_pb_product_info')
+    for filename in filenames:
+        # 파일명에서 브랜드 키 추출 (예: pb_careplus_result_20250708_081022.json → careplus)
+        brand_key = filename.split('_')[1]
+        s3_object_name = f"raw_data/pb/{brand_key}/{filename}"
+        try:
+            s3.upload_file(filename, 'de6-team5-bucket', s3_object_name)
+            logging.info(f"{filename} 파일이 S3에 정상적으로 저장되었습니다. (경로: {s3_object_name})")
+        except Exception as e:
+            logging.error(f"{filename} 파일 S3 업로드 실패: {e}")
+            raise
+        if os.path.exists(filename):
+            os.remove(filename)
+            logging.info(f"{filename} 파일이 로컬에서 삭제되었습니다.")
+
 with DAG(
-    dag_id='delightproject_crawling_dag',
+    dag_id='pb_brand_crawl_healthcare',
     default_args=default_args,
-    start_date=datetime(2025, 7, 1),
-    schedule_interval=None,
+    description='PB 브랜드 전체 데이터 수집',
+    schedule_interval="5 16 * * *",  # airflow 2 버전
+    #schedule="1 13 * * *",        # airflow 3 버전
+    start_date=datetime(2024, 7, 1),
     catchup=False,
+    tags=['pb_brand'],
 ) as dag:
 
-    task_crawl = PythonOperator(
-        task_id='crawl_pbbrand_delightproject',
-        python_callable=crawl_delightproject_with_detail,
-        provide_context=True
+    crawl_pb_brand = PythonOperator(
+        task_id='crawl_pb_brand',
+        python_callable=crawl_pb_brand,
+        #provide_context=True,
     )
 
-    task_upload = PythonOperator(
-        task_id='upload_to_s3',
+    crawl_pb_product_info = PythonOperator(
+        task_id='crawl_pb_product_info',
+        python_callable=crawl_pb_product_info,
+        #provide_context=True,
+    )
+
+    upload_s3 = PythonOperator(
+        task_id='upload_s3',
         python_callable=upload_to_s3,
-        provide_context=True
+        #provide_context=True,
     )
 
-    task_crawl >> task_upload
+    crawl_pb_brand >> crawl_pb_product_info >> upload_s3
