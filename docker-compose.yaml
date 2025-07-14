@@ -69,6 +69,7 @@ x-airflow-common: &airflow-common
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
 
     AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Seoul
 
     _PIP_ADDITIONAL_REQUIREMENTS: "" # ${_PIP_ADDITIONAL_REQUIREMENTS:-} 꼭 비워둬야 한다고..
     # The following line can be used to set a custom config file, stored in the local config folder

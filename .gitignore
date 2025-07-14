@@ -212,3 +212,4 @@ __marimo__/
 airflow.cfg
 profiles.yml
 .user.yml
+logs/
