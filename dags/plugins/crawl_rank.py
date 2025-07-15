@@ -148,12 +148,12 @@ def get_rank_detail_info(sb, goods_no: str) -> dict:
     soup = BeautifulSoup(html, 'html.parser')
 
     # 카테고리 추출
-    # try:
-    #     category = soup.select_one("a.cate_y#midCatNm").text.strip()
-    #     logging.info(f"카테고리: {category}")
-    # except Exception as e:
-    #     logging.warning(f"카테고리 추출 실패: {e}")
-    #     category = ""
+    try:
+        category = soup.select_one("a.cate_y#midCatNm").text.strip()
+        logging.info(f"카테고리: {category}")
+    except Exception as e:
+        logging.warning(f"카테고리 추출 실패: {e}")
+        category = ""
     
     # 총리뷰수
     try:
@@ -266,7 +266,7 @@ def get_rank_detail_info(sb, goods_no: str) -> dict:
         logging.warning(f"[상세 스펙 파싱 오류]: {e}")
 
     return {
-        # "category": category,
+        "category": category,
         "totalComment": total_comment,
         "numOfReviews": total_review,
         "avgReview": review_score,

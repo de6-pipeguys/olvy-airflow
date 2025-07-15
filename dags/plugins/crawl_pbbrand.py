@@ -80,7 +80,7 @@ def get_brand(brand_code) -> pd.DataFrame:
 
                 data.append({
                     "brandName": brand,
-                    "isPB": is_pb,
+                    "isPb": is_pb,
                     "goodsName": name,
                     "goodsNo": goods_no,
                     "salePrice": price_final,
