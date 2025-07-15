@@ -8,6 +8,7 @@ from plugins.crawl_rank import get_top100, get_rank_detail_info
 from plugins import slack
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import logging
+import pendulum
 
 def crawl_cleansing_data(**context):
     logging.info("get_top100_cleansing 실행")
@@ -71,6 +72,7 @@ def upload_to_s3(**context):
         raise
 
 # =======  DAG 정의 =======
+local_tz = pendulum.timezone("Asia/Seoul")
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -85,7 +87,7 @@ with DAG(
     default_args=default_args,
     # schedule_interval = "30 9 * * *",  Airflow 2버전
     schedule = "30 9 * * *",
-    start_date=datetime(2025, 7, 1),
+    start_date=datetime(2025, 7, 1, tzinfo=local_tz),
     catchup=False,
 ) as dag_morning:
 
@@ -106,7 +108,7 @@ with DAG(
     default_args=default_args,
     # schedule_interval = "1 17 * * *",  Airflow 2버전
     schedule = "1 17 * * *",
-    start_date=datetime(2025, 7, 1),
+    start_date=datetime(2025, 7, 1, tzinfo=local_tz),
     catchup=False,
 ) as dag_evening:
 

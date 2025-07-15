@@ -8,6 +8,7 @@ import logging
 from plugins.crawl_pbbrand import get_brand, get_pbbrand_detail_info 
 from plugins import slack 
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+import pendulum
 
 ##### 실행 코드 #####
 PB_BRAND_CODE_DICT = {
@@ -80,6 +81,7 @@ def upload_to_s3(**context):
         raise
 
 # DAG 정의
+local_tz = pendulum.timezone("Asia/Seoul")
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -94,7 +96,7 @@ with DAG(
     default_args=default_args,
     # schedule_interval="0 13 * * *",  Airflow 2버전 
     schedule="0 13 * * *",
-    start_date=datetime(2025, 7, 1),
+    start_date=datetime(2025, 7, 1, tzinfo=local_tz),
     catchup=False,
 ) as dag:
 
