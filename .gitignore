@@ -213,3 +213,4 @@ airflow.cfg
 profiles.yml
 .user.yml
 logs/
+airflow_volumes_.tgz
