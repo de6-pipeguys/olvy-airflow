@@ -142,7 +142,8 @@ def get_top100(category: str) -> tuple:
                     "originalPrice": price_original,
                     "flagList": flag_list,  # 리스트로 저장
                     "createdAt": collected_at,
-                    "isSoldout": bool(is_soldout)
+                    "isSoldout": bool(is_soldout),
+                    "category":category #카테고리 값 추가
                 }
             )
             log.info(f"[get_top100_{category}] {rank_val}위 상품: {brand} {name} (goods_no: {goods_no})")
@@ -270,9 +271,18 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     # 상세스펙 정보 추출
     detail_spec = {}
     spec_map = {
+        "포장상태": "package",
+        "유통기한": "exp",
+        "맛": "taste",
+        "자극도": "stimulate",
+        "피부타입": "skin_type",
+        "개운함": "refreshing",
         "용량": "capacity",
         "주요 사양": "detail",
-        "성분": "ingredient"
+        "성분": "ingredient",
+        "지속력": "vitality",
+        "내구성": "durability",
+        "편리성": "Convenience"
     }
     for title, key in spec_map.items():
         detail_spec[key] = get_detail_info(soup, title)
