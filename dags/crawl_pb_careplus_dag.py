@@ -94,8 +94,8 @@ with DAG(
     dag_id='pb_brand_crawl_healthcare',
     default_args=default_args,
     description='PB 브랜드 전체 데이터 수집',
-    schedule_interval="5 16 * * *",  # airflow 2 버전
-    #schedule="1 13 * * *",        # airflow 3 버전
+    #schedule_interval="5 16 * * *",  # airflow 2 버전
+    schedule="1 13 * * *",        # airflow 3 버전
     start_date=datetime(2024, 7, 1),
     catchup=False,
     tags=['pb_brand'],

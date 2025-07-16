@@ -1,4 +1,4 @@
-from airflow.models.dag import DAG # 이 부분 import 추가
+from airflow.models.dag import DAG 
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pandas as pd
