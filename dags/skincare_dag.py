@@ -46,8 +46,17 @@ def crawl_product_info(**context):
 
     detail_df = pd.DataFrame(detail_list)
     result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"rank_skincare_result_{timestamp}.json"
+    timestamp = datetime.now().strftime("%Y%m%d")
+    dag_id = context['dag'].dag_id
+    #filename = f"rank_skincare_result_{timestamp}_%H%M%S.json"
+    if dag_id == 'skincare_crawl_afternoon':
+        time_str = "170100"
+    elif dag_id == 'skincare_crawl_morning':
+        time_str = "093000"
+    else:
+        time_str = "000000"
+
+    filename = f"rank_skincare_result_{timestamp}_{time_str}.json"
     result_df.to_json(filename, orient='records', force_ascii=False, indent=2)
     context['ti'].xcom_push(key='result_filename', value=filename)
 

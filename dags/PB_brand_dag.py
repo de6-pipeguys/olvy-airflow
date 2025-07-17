@@ -23,23 +23,29 @@ default_args = {
 PB_BRAND_CODE_DICT = {
     "바이오힐 보": "A000897",
     "브링그린": "A002253",
-    "라운드어라운드": "A001306",
+    "라운드어라운드": "A001306"
 }
 
 def crawl_pb_brand(**context):
     brand_data = {}
+    fail_brands = []
     for brand_name, brand_code in PB_BRAND_CODE_DICT.items():
         data, goods_no_list = crawl_brand_skincare.get_brand(brand_name, brand_code)
+        if not goods_no_list or len(goods_no_list) == 0:
+            fail_brands.append(brand_name)
         brand_data[brand_name] = {
             "data": data,
             "goods_no_list": goods_no_list
         }
+    # 일부 실패한 경우 경고 로그
+    if fail_brands:
+        raise ValueError(f"다음 브랜드 크롤링 실패: {fail_brands}")
     context['ti'].xcom_push(key='brand_data', value=brand_data)
 
 def crawl_pb_product_info(**context):
     from datetime import datetime
     brand_data = context['ti'].xcom_pull(key='brand_data', task_ids='crawl_pb_brand')
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d")
     filenames = []
     for brand_name, brand_info in brand_data.items():
         data = brand_info["data"]
@@ -62,7 +68,7 @@ def crawl_pb_product_info(**context):
         result_df = pd.concat([df.reset_index(drop=True), detail_df.reset_index(drop=True)], axis=1)
         # 파일명 생성
         brand_file_key = brand_name.lower().replace(" ", "_").replace("바이오힐_보", "biohealboh").replace("브링그린", "bringgreen").replace("라운드어라운드", "roundaround")
-        filename = f"pb_{brand_file_key}_result_{timestamp}.json"
+        filename = f"pb_{brand_file_key}_result_{timestamp}_130000.json"
         result_df.to_json(filename, orient='records', force_ascii=False, indent=2)
         filenames.append(filename)
     context['ti'].xcom_push(key='result_filenames', value=filenames)
@@ -97,7 +103,7 @@ with DAG(
     default_args=default_args,
     description='PB 브랜드 전체 데이터 수집',
     #schedule_interval="5 16 * * *",  # airflow 2 버전
-    schedule="1 13 * * *",        # airflow 3 버전
+    schedule="0 13 * * *",        # airflow 3 버전
     start_date=datetime(2024, 7, 1),
     catchup=False,
     tags=['pb_brand'],
