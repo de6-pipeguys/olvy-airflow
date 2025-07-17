@@ -3,7 +3,12 @@ beautifulsoup4
 pandas
 requests
 pendulum
-apache-airflow-providers-slack
+#apache-airflow-providers-slack
+apache-airflow-providers-cncf-kubernetes>=3,<4
 selenium
 seleniumbase==4.21.0
 boto3
+# Airflow provider 패키지 (버전 지정 필수!)
+apache-airflow-providers-slack==7.0.0
+apache-airflow-providers-celery==3.3.1
+apache-airflow-providers-common-messaging==1.0.3

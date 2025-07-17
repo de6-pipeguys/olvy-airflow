@@ -1,10 +1,20 @@
 FROM --platform=linux/amd64 apache/airflow:3.0.2
-#FROM --platform=linux/amd64 apache/airflow:2.9.1
 
-# Chrome 설치는 루트 권한이 필요하므로
+USER airflow
+
+# ✅ Airflow 2.9.1 삭제
+RUN pip uninstall -y apache-airflow
+
+# ✅ 2.10.1 설치 (constraints 사용)
+RUN pip install apache-airflow==2.10.1 \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.1/constraints-3.12.txt"
+
+# 루트 권한 전환 (시스템 패키지 설치를 위해)
 USER root
 
-RUN apt-get update && apt-get install -y \
+# ✅ 3. 시스템 패키지 설치 (Chrome 실행 위한 라이브러리)
+RUN rm -f /etc/apt/sources.list.d/google-chrome.list || true && \
+    apt-get update && apt-get install -y \
     wget \
     gnupg2 \
     curl \
@@ -25,16 +35,19 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     --no-install-recommends
 
-RUN wget https://mirror.cs.uchicago.edu/google-chrome/pool/main/g/google-chrome-stable/google-chrome-stable_114.0.5735.90-1_amd64.deb && \
-    dpkg -i google-chrome-stable_114.0.5735.90-1_amd64.deb || true && \
+# Chrome 설치
+COPY google-chrome-stable_114.0.5735.90-1_amd64.deb /tmp/
+RUN dpkg -i /tmp/google-chrome-stable_114.0.5735.90-1_amd64.deb || true && \
     apt-get install -f -y && \
-    rm google-chrome-stable_114.0.5735.90-1_amd64.deb
+    rm /tmp/google-chrome-stable_114.0.5735.90-1_amd64.deb
 
+# ChromeDriver 설치
 RUN wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip && \
-    unzip chromedriver_linux64.zip && \
+    unzip -o chromedriver_linux64.zip && \
     mv chromedriver /usr/local/bin/ && \
     rm chromedriver_linux64.zip
 
+# airflow 사용자로 돌아가기
 USER airflow
 
 COPY requirements.txt .
