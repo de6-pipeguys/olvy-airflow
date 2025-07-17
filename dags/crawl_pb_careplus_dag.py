@@ -5,8 +5,8 @@ import pandas as pd
 import boto3
 from seleniumbase import SB
 import os
-from crawlers import crawl_brand 
-from utils import slack
+from crawler import crawl_brand 
+from plugins import slack
 
 from airflow.models import Variable
 import logging
@@ -94,8 +94,7 @@ with DAG(
     dag_id='pb_brand_crawl_healthcare',
     default_args=default_args,
     description='PB 브랜드 전체 데이터 수집',
-    #schedule_interval="5 16 * * *",  # airflow 2 버전
-    schedule="1 13 * * *",        # airflow 3 버전
+    schedule="1 13 * * *",   
     start_date=datetime(2024, 7, 1),
     catchup=False,
     tags=['pb_brand'],
@@ -113,10 +112,13 @@ with DAG(
         #provide_context=True,
     )
 
-    upload_s3 = PythonOperator(
+    upload_to_s3 = PythonOperator(
         task_id='upload_s3',
         python_callable=upload_to_s3,
         #provide_context=True,
     )
 
-    crawl_pb_brand >> crawl_pb_product_info >> upload_s3
+    crawl_pb_brand >> crawl_pb_product_info >> upload_to_s3
+
+    ##리턴값에 하드코딩으로 랭킹데이터는 카테고리도 갖기
+    ##딜라이트 set map

@@ -6,8 +6,7 @@ import boto3
 from seleniumbase import SB
 import os
 import logging
-
-from crawlers import crawl_rank
+from crawler import crawl_rank
 from plugins import slack
 from airflow.models import Variable
 from pendulum import timezone
@@ -165,8 +164,7 @@ with DAG(
     dag_id='healthcare_crawl_afternoon',
     default_args=default_args,
     description='healthcare ranking crawl(afternoon)',
-    #schedule_interval="1 8 * * *",   # 한국시간 오후 5시 1분 (UTC 8시 1분)
-    schedule="1 17 * * *",        # airflow 3 버전
+    schedule="1 17 * * *",    
     start_date=datetime(2024, 7, 1, tzinfo=timezone("Asia/Seoul")),
     catchup=False,
     tags=['healthcare', 'ranking','afternoon'],

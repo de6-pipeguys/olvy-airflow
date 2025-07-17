@@ -7,8 +7,8 @@ from seleniumbase import SB
 import os
 import logging
 
-from crawlers import crawl_rank
-from utils import slack
+from crawler import crawl_rank
+from plugins import slack
 from airflow.models import Variable
 from pendulum import timezone
 
@@ -133,9 +133,7 @@ with DAG(
     dag_id='food_crawl_morning',
     default_args=default_args,
     description='food ranking crawl(morning)',
-    #schedule_interval="30 0 * * *",  # 한국시간 오전 9시 30분 (UTC 0시 30분)
-
-    schedule="30 9 * * *",        # airflow 3 버전
+    schedule="30 9 * * *",
     start_date=datetime(2024, 7, 1, tzinfo=timezone("Asia/Seoul")),
     catchup=False,
     tags=['food', 'ranking','morning'],
@@ -165,8 +163,8 @@ with DAG(
     dag_id='food_crawl_afternoon',
     default_args=default_args,
     description='food ranking crawl(afternoon)',
-    #schedule_interval="1 8 * * *",   # 한국시간 오후 5시 1분 (UTC 8시 1분)
-    schedule="1 17 * * *",        # airflow 3 버전
+
+    schedule="1 17 * * *",        
     start_date=datetime(2024, 7, 1, tzinfo=timezone("Asia/Seoul")),
     catchup=False,
     tags=['food', 'ranking','afternoon'],
