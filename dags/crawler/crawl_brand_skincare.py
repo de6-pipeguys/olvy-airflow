@@ -18,7 +18,7 @@ def get_brand(brand_name, brand_code):
     with SB(uc=True, test=True, headless=True) as sb:
         log.info(f"[get_brand] URL 오픈: {url}")
         sb.open(url)
-        time.sleep(1)
+        time.sleep(10)  # 페이지 렌더링 대기 (3초, 필요시 더 늘릴 수 있음)
 
         page = 1
         while True:
@@ -67,7 +67,7 @@ def get_brand(brand_name, brand_code):
                 try:
                     price_original = item.select_one("span.origin").text.strip().replace("원", "").replace(",", "")
                 except Exception:
-                    price_original = ""
+                    price_original = price_final
                 try:
                     flag_spans = item.select("div.flags span.flag")
                     flag_list = [span.text.strip() for span in flag_spans if span.text.strip()]
