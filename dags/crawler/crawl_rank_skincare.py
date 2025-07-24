@@ -239,7 +239,11 @@ def get_product_detail_info(sb, goods_no: str) -> dict:
     try:
         poll_div = soup.select_one("div.poll_all")
         if poll_div:
-            for dl in poll_div.select("dl.poll_type2.type3"):
+            # 우선 dl.poll_type2.type3을 찾고, 없으면 dl.poll_type2만 찾기
+            dl_tags = poll_div.select("dl.poll_type2.type3")
+            if not dl_tags:
+                dl_tags = poll_div.select("dl.poll_type2")
+            for dl in dl_tags:
                 type_name = dl.select_one("dt span")
                 type_name = type_name.text.strip() if type_name else ""
                 for li in dl.select("dd ul.list > li"):

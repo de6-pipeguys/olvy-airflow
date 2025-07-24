@@ -71,9 +71,8 @@ def get_brand(brand_name, brand_code):
                 try:
                     flag_spans = item.select("div.flags span.flag")
                     flag_list = [span.text.strip() for span in flag_spans if span.text.strip()]
-                    flag_str = ",".join(flag_list) if flag_list else ""
                 except Exception:
-                    flag_str = ""
+                    flag_list = []
                 try:
                     soldout_flag = item.select_one("span.status_flag.soldout")
                     is_soldout = bool(soldout_flag)
@@ -86,7 +85,7 @@ def get_brand(brand_name, brand_code):
                     "goodsName": name,
                     "salePrice": price_final,
                     "originalPrice": price_original,
-                    "flagList": flag_str,
+                    "flagList": flag_list,
                     "isSoldout": is_soldout,
                     "createdAt": collected_at
                 })
@@ -201,7 +200,11 @@ def get_brand_product_detail_info(sb, goods_no: str) -> dict:
     try:
         poll_div = soup.select_one("div.poll_all")
         if poll_div:
-            for dl in poll_div.select("dl.poll_type2.type3"):
+            # 우선 dl.poll_type2.type3을 찾고, 없으면 dl.poll_type2만 찾기
+            dl_tags = poll_div.select("dl.poll_type2.type3")
+            if not dl_tags:
+                dl_tags = poll_div.select("dl.poll_type2")
+            for dl in dl_tags:
                 type_name = dl.select_one("dt span")
                 type_name = type_name.text.strip() if type_name else ""
                 for li in dl.select("dd ul.list > li"):
