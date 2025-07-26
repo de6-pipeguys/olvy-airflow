@@ -49,8 +49,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.2}
-  # build: .
+  #image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.2}
+  build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -75,9 +75,10 @@ x-airflow-common:
     AIRFLOW__API_AUTH__JWT_SECRET: ${JWT_SECRET:-}
     DBT_PROJECT_DIR: /opt/airflow/de6_5team
     DBT_PROFILES_DIR: /home/airflow/.dbt
-    DBT_DATABASE: ${DBT_DATABASE}
-    DBT_USER: ${DBT_USER}
-    DBT_PASSWORD: ${DBT_PASSWORD}
+    # DBT_DATABASE: ${DBT_DATABASE}
+    # DBT_USER: ${DBT_USER}
+    # DBT_PASSWORD: ${DBT_PASSWORD}
+    TZ: 'Asia/Seoul'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -143,6 +144,8 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    environment:
+      <<: *airflow-common-env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -339,24 +342,24 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  dbt-dev-db:
-    image: postgres:13
-    container_name: dbt-dev-db
-    environment:
-      POSTGRES_USER: ${DBT_USER}
-      POSTGRES_PASSWORD: ${DBT_PASSWORD}
-      POSTGRES_DB: ${DBT_DATABASE}
-    ports:
-      - "5433:5432"
-    volumes:
-      - dbt-dev-db-volume:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DBT_USER}"]
-      interval: 10s
-      retries: 5
-      start_period: 5s
-    restart: always
+  # dbt-dev-db:
+  #   image: postgres:13
+  #   container_name: dbt-dev-db
+  #   environment:
+  #     POSTGRES_USER: ${DBT_USER}
+  #     POSTGRES_PASSWORD: ${DBT_PASSWORD}
+  #     POSTGRES_DB: ${DBT_DATABASE}
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - dbt-dev-db-volume:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD", "pg_isready", "-U", "${DBT_USER}"]
+  #     interval: 10s
+  #     retries: 5
+  #     start_period: 5s
+  #   restart: always
 
 volumes:
   postgres-db-volume:
-  dbt-dev-db-volume:
+  # dbt-dev-db-volume:
