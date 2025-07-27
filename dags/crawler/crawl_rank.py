@@ -13,7 +13,7 @@ import pendulum
 
 def get_top100(category: str) -> tuple:
     log = LoggingMixin().log
-    log.info("[get_top100_{category}] 시작")
+    log.info(f"[get_top100_{category}] 시작")
     chrome_options = Options()
     chrome_options.add_argument('--headless=new') 
     chrome_options.add_argument("--no-sandbox")
