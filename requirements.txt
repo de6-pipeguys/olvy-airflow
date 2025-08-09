@@ -1,0 +1,6 @@
+ruff
+beautifulsoup4
+selenium
+seleniumbase>=4.21.0
+boto3
+chromedriver-autoinstaller
