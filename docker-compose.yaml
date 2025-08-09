@@ -45,17 +45,20 @@
 ---
 
 x-airflow-common: &airflow-common
+  build: .
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.2}
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${CORE_HOST}:5432/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@${CORE_HOST}:5432/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://${CORE_HOST}:6379/0
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@10.0.32.240:5432/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@10.0.32.240:5432/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://10.0.32.240:6379/0
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW__API__SECRET_KEY}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET}
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://${CORE_HOST}:8080/execution/'
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://10.0.32.240:8080/execution/'
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
@@ -70,9 +73,26 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
-    hostname: worker
+    hostname: airflow-worker1
+    extra_hosts:
+      - "airflow-worker1:10.0.33.133"
     ports:
       - "8793:8793"
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+      AIRFLOW__CELERY__WORKER_LOG_SERVER_HOST: ${AIRFLOW__CELERY__WORKER_LOG_SERVER_HOST}
+      AIRFLOW__CELERY__WORKER_LOG_SERVER_PORT: ${AIRFLOW__CELERY__WORKER_LOG_SERVER_PORT}
+      AIRFLOW__CELERY__WORKER_CONCURRENCY: 4
+      AIRFLOW__LOGGING__REMOTE_LOGGING: 'False'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3.5G
+        reservations:
+          cpus: '1.0'
+          memory: 2.5G
     healthcheck:
       test:
         - "CMD-SHELL"
@@ -80,8 +100,5 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
-    environment:
-      <<: *airflow-common-env
-      DUMB_INIT_SETSID: "0"
+      start_period: 30s 
     restart: always
